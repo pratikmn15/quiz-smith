@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "query": "cap, relation model, er model, sql query, scaling",
+    "generated_at": "2025-09-15T23:28:52.703036",
+    "total_questions": 5,
+    "model_used": "Qwen/Qwen3-14B"
+  },
+  "questions": [
+    {
+      "id": 1,
+      "question": "Question 1: Which feature defines a relational database according to the Relational Model?",
+      "options": {
+        "A": "A collection of tables with unique names and structured relationships",
+        "B": "A hierarchical structure of data organized in a tree-like format",
+        "C": "A graph-based model representing data as nodes and edges",
+        "D": "A single table storing all data in a flat file format"
+      },
+      "correct_answer": "A"
+    },
+    {
+      "id": 2,
+      "question": "Question 2: What is the primary purpose of an Entity-Relationship (ER) diagram?",
+      "options": {
+        "A": "To represent the physical storage structure of a database",
+        "B": "To provide a visual blueprint of the database schema and relationships",
+        "C": "To enforce data normalization rules in a relational database",
+        "D": "To optimize SQL queries for faster execution"
+      },
+      "correct_answer": "B"
+    },
+    {
+      "id": 3,
+      "question": "Question 3: According to the CAP Theorem, what is the tradeoff in a distributed system during a network partition?",
+      "options": {
+        "A": "Consistency vs. Partition Tolerance",
+        "B": "Consistency vs. Availability",
+        "C": "Availability vs. Partition Tolerance",
+        "D": "Partition Tolerance vs. Scalability"
+      },
+      "correct_answer": "B"
+    },
+    {
+      "id": 4,
+      "question": "Question 4: In the Extended ER Model, what does \"specialization\" refer to?",
+      "options": {
+        "A": "Combining multiple entity sets into a single generalized entity",
+        "B": "Subdividing an entity set into distinct subgroups based on shared characteristics",
+        "C": "Defining relationships between entities using foreign keys",
+        "D": "Enforcing constraints for data integrity across multiple tables"
+      },
+      "correct_answer": "B"
+    },
+    {
+      "id": 5,
+      "question": "Question 5: Which characteristic best describes NoSQL databases in relation to the CAP Theorem?",
+      "options": {
+        "A": "Prioritize consistency and partition tolerance over availability",
+        "B": "Prioritize availability and partition tolerance over consistency",
+        "C": "Guarantee strong consistency in all distributed scenarios",
+        "D": "Use SQL queries for horizontal scaling across nodes"
+      },
+      "correct_answer": "B"
+    }
+  ]
+}

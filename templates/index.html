@@ -1,0 +1,99 @@
+<!-- filepath: /home/pratik/Documents/quiz-smith/templates/index.html -->
+{% extends "base.html" %}
+
+{% block title %}Quiz Smith - Home{% endblock %}
+
+{% block content %}
+<div class="quiz-container">
+    <div class="text-center mb-5">
+        <h1 class="display-4"><i class="fas fa-brain text-primary"></i> Quiz Smith</h1>
+        <p class="lead">Test your knowledge with AI-generated quizzes</p>
+    </div>
+
+    {% if mcq_files %}
+    <div class="row">
+        <div class="col-12">
+            <h3 class="mb-4"><i class="fas fa-list"></i> Available Quizzes</h3>
+            
+            {% for file in mcq_files %}
+            <div class="card mb-3 shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h5 class="card-title mb-2">
+                                <i class="fas fa-quiz text-primary"></i> {{ file.query|title }}
+                            </h5>
+                            <div class="quiz-info">
+                                <p class="card-text text-muted mb-1">
+                                    <i class="fas fa-question-circle"></i> {{ file.total_questions }} questions
+                                </p>
+                                <p class="card-text text-muted mb-0">
+                                    <i class="fas fa-calendar"></i> Generated: {{ file.display_date }}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <a href="{{ url_for('start_quiz', filename=file.filename) }}" 
+                               class="btn btn-primary btn-lg">
+                                <i class="fas fa-play"></i> Start Quiz
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center">
+        <div class="card shadow">
+            <div class="card-body py-5">
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                <h4>No Quizzes Available</h4>
+                <p class="text-muted mb-4">
+                    No MCQ files found. Please generate some quizzes first using the MCQ generator.
+                </p>
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle"></i> How to generate quizzes:</h6>
+                    <ol class="text-start mb-0">
+                        <li>Run the MCQ generator: <code>python generate_mcqs.py</code></li>
+                        <li>Enter your topic or query</li>
+                        <li>Wait for questions to be generated</li>
+                        <li>Return here to take the quiz!</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.quiz-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.card {
+    transition: transform 0.2s ease-in-out;
+    border: none;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.quiz-info {
+    line-height: 1.2;
+}
+
+.btn-primary {
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: scale(1.05);
+}
+</style>
+{% endblock %}

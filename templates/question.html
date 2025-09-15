@@ -1,0 +1,203 @@
+<!-- home/pratik/Documents/quiz-smith/templates/question.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ quiz_title|title }} - Question {{ current }}{% endblock %}
+
+{% block content %}
+<div class="quiz-container">
+    <!-- Progress Bar -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-between mb-2">
+            <span><strong>{{ quiz_title|title }}</strong></span>
+            <span class="badge bg-primary">Question {{ current }} of {{ total }}</span>
+        </div>
+        <div class="progress" style="height: 12px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                 role="progressbar" 
+                 style="width: {{ (current/total*100)|round }}%">
+                {{ (current/total*100)|round }}%
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-question-circle"></i> Question {{ current }}
+            </h4>
+        </div>
+        <div class="card-body p-4">
+            <h5 class="question-text mb-4">
+                {{ question.question.replace('Question ' + current|string + ':', '').strip() }}
+            </h5>
+
+            <!-- Answer Options -->
+            <div class="options-container">
+                {% for option_key, option_text in question.options.items() %}
+                <div class="mb-3">
+                    <button class="btn btn-outline-secondary btn-lg w-100 option-btn text-start" 
+                            onclick="selectAnswer('{{ option_key }}')" 
+                            id="option-{{ option_key }}">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-primary me-3 fs-6">{{ option_key }}</span>
+                            <span>{{ option_text }}</span>
+                        </div>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Area -->
+    <div id="feedback" class="alert" style="display: none;"></div>
+
+    <!-- Next Button -->
+    <div class="text-center">
+        <button id="next-btn" class="btn btn-primary btn-lg me-2" 
+                onclick="nextQuestion()" style="display: none;">
+            <i class="fas fa-arrow-right"></i> Next Question
+        </button>
+        <button id="finish-btn" class="btn btn-success btn-lg" 
+                onclick="finishQuiz()" style="display: none;">
+            <i class="fas fa-flag-checkered"></i> Finish Quiz
+        </button>
+    </div>
+</div>
+
+<style>
+.quiz-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.option-btn {
+    transition: all 0.3s ease;
+    border: 2px solid #dee2e6;
+    margin-bottom: 8px;
+}
+
+.option-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-color: #007bff;
+}
+
+.option-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.correct {
+    background-color: #d4edda !important;
+    border-color: #c3e6cb !important;
+    color: #155724 !important;
+}
+
+.incorrect {
+    background-color: #f8d7da !important;
+    border-color: #f5c6cb !important;
+    color: #721c24 !important;
+}
+
+.progress {
+    border-radius: 10px;
+}
+
+.progress-bar {
+    border-radius: 10px;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let answered = false;
+
+function selectAnswer(answer) {
+    if (answered) return;
+    
+    // Disable all option buttons
+    document.querySelectorAll('.option-btn').forEach(btn => {
+        btn.disabled = true;
+    });
+    
+    // Submit answer
+    fetch('/submit_answer', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({answer: answer})
+    })
+    .then(response => response.json())
+    .then(data => {
+        answered = true;
+        showFeedback(answer, data);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error submitting answer. Please try again.');
+        // Re-enable buttons on error
+        document.querySelectorAll('.option-btn').forEach(btn => {
+            btn.disabled = false;
+        });
+    });
+}
+
+function showFeedback(userAnswer, data) {
+    const feedback = document.getElementById('feedback');
+    const selectedBtn = document.getElementById(`option-${userAnswer}`);
+    const correctBtn = document.getElementById(`option-${data.correct_answer}`);
+    
+    // Highlight selected answer
+    if (data.correct) {
+        selectedBtn.classList.add('correct');
+        selectedBtn.classList.remove('btn-outline-secondary');
+        feedback.className = 'alert alert-success';
+        feedback.innerHTML = '<i class="fas fa-check-circle"></i> <strong>Correct!</strong> Well done!';
+    } else {
+        selectedBtn.classList.add('incorrect');
+        selectedBtn.classList.remove('btn-outline-secondary');
+        if (correctBtn && correctBtn !== selectedBtn) {
+            correctBtn.classList.add('correct');
+            correctBtn.classList.remove('btn-outline-secondary');
+        }
+        feedback.className = 'alert alert-danger';
+        feedback.innerHTML = `<i class="fas fa-times-circle"></i> <strong>Incorrect.</strong> The correct answer is <strong>${data.correct_answer}</strong>`;
+    }
+    
+    feedback.style.display = 'block';
+    
+    // Show appropriate next button
+    {% if current < total %}
+    document.getElementById('next-btn').style.display = 'inline-block';
+    {% else %}
+    document.getElementById('finish-btn').style.display = 'inline-block';
+    {% endif %}
+}
+
+function nextQuestion() {
+    window.location.href = '{{ url_for("question") }}';
+}
+
+function finishQuiz() {
+    window.location.href = '{{ url_for("results") }}';
+}
+
+// Add keyboard support
+document.addEventListener('keydown', function(event) {
+    if (answered) return;
+    
+    const key = event.key.toLowerCase();
+    if (['a', 'b', 'c', 'd'].includes(key)) {
+        const btn = document.getElementById(`option-${key.toUpperCase()}`);
+        if (btn && !btn.disabled) {
+            btn.click();
+        }
+    }
+});
+</script>
+{% endblock %}

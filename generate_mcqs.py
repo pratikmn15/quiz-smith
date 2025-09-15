@@ -1,13 +1,15 @@
-# Generate MCQs using HuggingFace Inference API (modern calls)
+# Generate MCQs using HuggingFace Inference API and save to JSON
 import os
+import json
+from datetime import datetime
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
-from query_database import search_database  # your real function
+from query_database import search_database
 
 # Load environment variables
 load_dotenv()
-HF_LLM_API_KEY = os.getenv("HF_LLM_API_KEY")  # keep same name in .env
-MODEL_ID = "Qwen/Qwen3-14B"            # same model as test.py
+HF_LLM_API_KEY = os.getenv("HF_LLM_API_KEY")
+MODEL_ID = "Qwen/Qwen3-14B"
 
 def setup_llm():
     """Initialize the Hugging Face InferenceClient for generation."""
@@ -17,7 +19,6 @@ def setup_llm():
         print("Please add your HuggingFace API key to the .env file: HF_LLM_API_KEY=your_hf_api_key_here")
         return None
     
-    # Debug: Show first few characters of API key
     print(f"🔑 Using API key: {HF_LLM_API_KEY[:10]}...")
     
     try:
@@ -43,7 +44,6 @@ def test_hf_llm_api():
         print(f"🧪 Testing with prompt: '{test_prompt}'")
         print(f"🎯 Testing model: {MODEL_ID}")
         
-        # Use the exact same API call as test.py
         completion = client.chat.completions.create(
             model=MODEL_ID,
             messages=[
@@ -68,22 +68,11 @@ def test_hf_llm_api():
             
     except Exception as e:
         print(f"❌ Hugging Face LLM API error: {e}")
-        print(f"❌ Error type: {type(e)}")
-        
-        # Check if it's an authentication error
-        if "401" in str(e) or "unauthorized" in str(e).lower():
-            print("🔑 This looks like an authentication error. Check your API key.")
-        elif "403" in str(e) or "forbidden" in str(e).lower():
-            print("🚫 This looks like a permission error. Your API key might not have access to this model.")
-        elif "404" in str(e) or "not found" in str(e).lower():
-            print("🔍 Model not found. The model might not be available via Inference API.")
-        
         print("Please check:")
         print("1. Your HF_LLM_API_KEY is valid and active")
         print("2. Your API key has access to the Inference API")
         print("3. The model Qwen/Qwen3-14B is available via Inference API")
         print("4. Your network connection")
-        
         return False
 
 def create_mcq_prompt(context, num_questions):
@@ -120,7 +109,7 @@ def generate_mcqs_from_content(content, num_questions=5):
 
     try:
         # Truncate content if too long for model context
-        max_content_length = 3000  # Increased for Qwen model
+        max_content_length = 3000
         if len(content) > max_content_length:
             content = content[:max_content_length] + "..."
             print(f"⚠️  Content truncated to {max_content_length} characters for model processing")
@@ -128,7 +117,6 @@ def generate_mcqs_from_content(content, num_questions=5):
         prompt = create_mcq_prompt(content, num_questions)
         print("🤖 Generating questions with HuggingFace Inference API...")
 
-        # Use the exact same API call structure as test.py
         completion = client.chat.completions.create(
             model=MODEL_ID,
             messages=[
@@ -157,7 +145,6 @@ def parse_mcqs(response_text):
         return []
 
     questions = []
-    # Split by "Question " but be more flexible with parsing
     raw_questions = response_text.strip().split('Question ')[1:]
 
     for q_text in raw_questions:
@@ -166,7 +153,7 @@ def parse_mcqs(response_text):
             continue
             
         # Extract question (first line after "Question ")
-        question_text = lines[0].rstrip(':')  # Remove trailing colon if present
+        question_text = lines[0].rstrip(':')
         question_line = f"Question {question_text}"
         
         # Extract options and correct answer
@@ -194,6 +181,58 @@ def parse_mcqs(response_text):
 
     return questions
 
+def save_mcqs_to_json(questions, query, filename=None):
+    """Save the generated MCQs to a JSON file."""
+    if not questions:
+        print("❌ No questions to save.")
+        return None
+    
+    # Generate filename if not provided
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_query = "".join(c for c in query if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        safe_query = safe_query.replace(' ', '_')[:30]  # Limit length
+        filename = f"mcqs_{safe_query}_{timestamp}.json"
+    
+    # Create the data structure
+    mcq_data = {
+        "metadata": {
+            "query": query,
+            "generated_at": datetime.now().isoformat(),
+            "total_questions": len(questions),
+            "model_used": MODEL_ID
+        },
+        "questions": []
+    }
+    
+    # Process each question
+    for i, q in enumerate(questions, 1):
+        question_data = {
+            "id": i,
+            "question": q['question'],
+            "options": {
+                "A": q['options'][0].replace('A) ', ''),
+                "B": q['options'][1].replace('B) ', ''),
+                "C": q['options'][2].replace('C) ', ''),
+                "D": q['options'][3].replace('D) ', '')
+            },
+            "correct_answer": q['correct_answer']
+        }
+        mcq_data["questions"].append(question_data)
+    
+    # Save to JSON file
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(mcq_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"✅ MCQs saved to: {filename}")
+        print(f"📊 Total questions saved: {len(questions)}")
+        return filename
+        
+    except Exception as e:
+        print(f"❌ Error saving to JSON: {e}")
+        return None
+
 def display_mcqs(questions):
     """Display the generated MCQs in a formatted way."""
     if not questions:
@@ -209,99 +248,6 @@ def display_mcqs(questions):
         print(f"   ✅ Correct Answer: {q.get('correct_answer', 'Unknown')}")
         print("-" * 40)
 
-def run_mcq_quiz(questions):
-    """Run an interactive CLI-based MCQ quiz."""
-    if not questions:
-        print("❌ No questions available for the quiz.")
-        return
-    
-    print("\n" + "🎯" * 30)
-    print("🎯 STARTING MCQ QUIZ 🎯")
-    print("🎯" * 30)
-    print(f"📊 Total Questions: {len(questions)}")
-    print("📝 Instructions:")
-    print("   - Type A, B, C, or D for your answer")
-    print("   - Type 'skip' to skip a question")
-    print("   - Type 'quit' to exit the quiz")
-    print("-" * 60)
-    
-    score = 0
-    answered = 0
-    skipped = 0
-    
-    for i, question in enumerate(questions, 1):
-        print(f"\n📋 Question {i}/{len(questions)}:")
-        print(f"   {question['question'].replace(f'Question {i}:', '').strip()}")
-        print()
-        
-        # Display options
-        for option in question['options']:
-            print(f"   {option}")
-        
-        # Get user answer
-        while True:
-            user_answer = input(f"\n👉 Your answer (A/B/C/D): ").strip().upper()
-            
-            if user_answer in ['A', 'B', 'C', 'D']:
-                answered += 1
-                correct_answer = question['correct_answer']
-                
-                if user_answer == correct_answer:
-                    print("✅ Correct! Well done!")
-                    score += 1
-                else:
-                    print(f"❌ Incorrect. The correct answer is {correct_answer}")
-                break
-                
-            elif user_answer.lower() == 'skip':
-                print("⏭️  Question skipped.")
-                skipped += 1
-                break
-                
-            elif user_answer.lower() == 'quit':
-                print("🚪 Exiting quiz...")
-                return display_quiz_results(score, answered, skipped, len(questions))
-                
-            else:
-                print("❌ Invalid input. Please enter A, B, C, D, 'skip', or 'quit'.")
-        
-        # Show progress
-        if i < len(questions):
-            print(f"\n📊 Progress: {i}/{len(questions)} | Score: {score}/{answered}")
-            input("Press Enter to continue to next question...")
-    
-    # Display final results
-    display_quiz_results(score, answered, skipped, len(questions))
-
-def display_quiz_results(score, answered, skipped, total):
-    """Display the final quiz results."""
-    print("\n" + "🏆" * 30)
-    print("🏆 QUIZ COMPLETED! 🏆")
-    print("🏆" * 30)
-    
-    percentage = (score / answered * 100) if answered > 0 else 0
-    
-    print(f"📊 RESULTS:")
-    print(f"   ✅ Correct Answers: {score}")
-    print(f"   ❌ Wrong Answers: {answered - score}")
-    print(f"   ⏭️  Skipped: {skipped}")
-    print(f"   📝 Total Questions: {total}")
-    print(f"   📈 Score: {score}/{answered} ({percentage:.1f}%)")
-    
-    # Performance feedback
-    if percentage >= 90:
-        print("🌟 Excellent! Outstanding performance!")
-    elif percentage >= 80:
-        print("👍 Great job! Well done!")
-    elif percentage >= 70:
-        print("👌 Good work! Keep it up!")
-    elif percentage >= 60:
-        print("📈 Not bad! Room for improvement.")
-    else:
-        print("📚 Consider reviewing the material more.")
-    
-    print("-" * 60)
-
 def generate_mcqs_from_query(query, num_questions=5, num_chunks=8):
     """Generate MCQs by first querying the ChromaDB, then using HF Inference API."""
     print(f"\nGenerating {num_questions} MCQs for query: '{query}'")
@@ -314,68 +260,61 @@ def generate_mcqs_from_query(query, num_questions=5, num_chunks=8):
     return generate_mcqs_from_content(content, num_questions)
 
 def main():
-    print("=== Quiz Smith MCQ Generator & Quiz Taker ===\n")
+    """Main function for MCQ generation."""
+    print("=== Quiz Smith MCQ Generator ===\n")
+    
     if not test_hf_llm_api():
         print("\n❌ Cannot proceed without a working Hugging Face Inference API connection.")
         return
 
     while True:
         print("\n" + "="*50)
-        print("MAIN MENU")
+        print("MCQ GENERATOR")
         print("="*50)
-        print("1. Generate MCQs from database query")
-        print("2. Take a quiz (requires generated questions)")
-        print("3. Exit")
         
-        choice = input("\nSelect an option (1-3): ").strip()
+        # Get user input
+        user_query = input("\nEnter your query or topic (or 'quit' to exit): ").strip()
         
-        if choice == '1':
-            # Generate MCQs
-            user_query = input("\nEnter your query or topic: ").strip()
-            if not user_query:
-                print("❌ Please enter a valid query.")
-                continue
-                
-            try:
-                num_q_input = input("Number of questions to generate (default: 5): ").strip()
-                num_questions = int(num_q_input) if num_q_input else 5
-                if num_questions > 10:
-                    print("⚠️  Limiting to 10 questions maximum")
-                    num_questions = 10
-            except ValueError:
-                print("Invalid number. Defaulting to 5 questions.")
-                num_questions = 5
-
-            mcq_response = generate_mcqs_from_query(user_query, num_questions)
-            if mcq_response:
-                global generated_questions  # Store for quiz mode
-                generated_questions = parse_mcqs(mcq_response)
-                if generated_questions:
-                    display_mcqs(generated_questions)
-                    print(f"\n📊 Successfully generated {len(generated_questions)} questions")
-                    print("💡 You can now take a quiz using option 2!")
-                else:
-                    print("❌ Could not parse questions. Raw output:")
-                    print(mcq_response)
-            else:
-                print("❌ Failed to generate MCQs.")
-        
-        elif choice == '2':
-            # Take quiz
-            try:
-                if 'generated_questions' in globals() and generated_questions:
-                    run_mcq_quiz(generated_questions)
-                else:
-                    print("❌ No questions available. Please generate MCQs first (option 1).")
-            except NameError:
-                print("❌ No questions available. Please generate MCQs first (option 1).")
-        
-        elif choice == '3':
+        if user_query.lower() in ['quit', 'exit', 'q']:
             print("👋 Thank you for using Quiz Smith! Goodbye!")
             break
-        
+            
+        if not user_query:
+            print("❌ Please enter a valid query.")
+            continue
+            
+        try:
+            num_q_input = input("Number of questions to generate (default: 5): ").strip()
+            num_questions = int(num_q_input) if num_q_input else 5
+            if num_questions > 10:
+                print("⚠️  Limiting to 10 questions maximum")
+                num_questions = 10
+        except ValueError:
+            print("Invalid number. Defaulting to 5 questions.")
+            num_questions = 5
+
+        # Generate MCQs
+        mcq_response = generate_mcqs_from_query(user_query, num_questions)
+        if mcq_response:
+            questions = parse_mcqs(mcq_response)
+            if questions:
+                # Display questions
+                display_mcqs(questions)
+                
+                # Save to JSON
+                saved_file = save_mcqs_to_json(questions, user_query)
+                
+                if saved_file:
+                    print(f"\n💾 Questions saved to: {saved_file}")
+                    print("🎯 You can now use this JSON file for web interface or other applications!")
+                else:
+                    print("❌ Failed to save questions to JSON file.")
+                    
+            else:
+                print("❌ Could not parse questions. Raw output:")
+                print(mcq_response)
         else:
-            print("❌ Invalid choice. Please select 1, 2, or 3.")
+            print("❌ Failed to generate MCQs.")
 
 if __name__ == "__main__":
     main()
