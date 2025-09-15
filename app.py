@@ -5,7 +5,7 @@ from datetime import datetime
 import glob
 
 app = Flask(__name__)
-app.secret_key = 'quiz-smith-secret-key-2024'  # Change this in production
+app.secret_key = 'quiz-smith-secret-key-2025' 
 
 def load_mcq_files():
     """Load all available MCQ JSON files."""
